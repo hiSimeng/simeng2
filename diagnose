@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CloudBase 连接诊断</title>
+    <script src="https://static.cloudbase.net/cloudbase-js-sdk/2.28.6/cloudbase.full.js"></script>
+    <style>
+        body { font-family: -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif; max-width: 800px; margin: 40px auto; padding: 20px; background: #f5f5f5; }
+        .card { background: white; border-radius: 12px; padding: 24px; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+        h1 { color: #333; font-size: 1.5rem; }
+        h2 { color: #4A90E2; font-size: 1.1rem; margin-bottom: 12px; }
+        .info-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #eee; font-size: 14px; }
+        .info-label { color: #666; }
+        .info-value { color: #333; font-weight: 600; word-break: break-all; text-align: right; max-width: 500px; }
+        .status-ok { color: #2ECC71; font-weight: 700; font-size: 1.2rem; }
+        .status-fail { color: #FF4757; font-weight: 700; font-size: 1.2rem; }
+        .status-waiting { color: #FF9F43; font-weight: 700; font-size: 1.2rem; }
+        .error-box { background: #FFF5F5; border: 1px solid #FFD0D0; border-radius: 8px; padding: 16px; margin-top: 12px; font-size: 13px; color: #CC0000; white-space: pre-wrap; word-break: break-all; }
+        .success-box { background: #F0FFF4; border: 1px solid #C6F6D5; border-radius: 8px; padding: 16px; margin-top: 12px; font-size: 13px; color: #22543D; }
+        button { background: #4A90E2; color: white; border: none; padding: 12px 24px; border-radius: 8px; font-size: 1rem; cursor: pointer; margin-top: 12px; }
+        button:hover { background: #357ABD; }
+        .hint { background: #FFF8E1; border: 1px solid #FFE082; border-radius: 8px; padding: 12px; margin-top: 12px; font-size: 13px; color: #8D6E00; line-height: 1.8; }
+        code { background: #f0f0f0; padding: 2px 6px; border-radius: 4px; font-size: 12px; }
+    </style>
+</head>
+<body>
+    <h1>🔧 CloudBase 连接诊断工具</h1>
+
+    <div class="card">
+        <h2>📋 当前环境信息</h2>
+        <div class="info-row">
+            <span class="info-label">当前页面地址</span>
+            <span class="info-value" id="currentUrl">-</span>
+        </div>
+        <div class="info-row">
+            <span class="info-label">访问协议</span>
+            <span class="info-value" id="protocol">-</span>
+        </div>
+        <div class="info-row">
+            <span class="info-label">域名</span>
+            <span class="info-value" id="hostname">-</span>
+        </div>
+        <div class="info-row">
+            <span class="info-label">CloudBase 环境 ID</span>
+            <span class="info-value">studentpet-d4g0uv0qo2d82dcd0</span>
+        </div>
+        <div class="info-row">
+            <span class="info-label">SDK 加载状态</span>
+            <span class="info-value" id="sdkStatus">-</span>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>🔌 连接测试</h2>
+        <div id="testStatus" class="status-waiting">⏳ 点击下方按钮开始测试</div>
+        <div id="resultBox"></div>
+        <button onclick="runDiagnostic()">开始诊断</button>
+    </div>
+
+    <div class="card">
+        <h2>💡 常见问题与解决方案</h2>
+        <div class="hint">
+            <strong>1. 跨域错误 (CORS)</strong><br>
+            当前域名没有加入 CloudBase 安全域名白名单。<br>
+            解决：去 <a href="https://console.cloud.tencent.com/tcb/env/studentpet-d4g0uv0qo2d82dcd0/setting/security" target="_blank">CloudBase 控制台 → 安全配置</a>，把上面的「域名」加到安全域名列表中。<br><br>
+            <strong>2. file:// 协议</strong><br>
+            如果你是双击打开的 HTML 文件（地址栏显示 file://），CloudBase 不支持此协议。<br>
+            解决：需要通过 http(s):// 访问，或者部署到 GitHub Pages。<br><br>
+            <strong>3. 认证失败 (Unauthorized / 401)</strong><br>
+            access key 可能已失效。<br>
+            解决：去 CloudBase 控制台重新生成 PublishableKey。<br><br>
+            <strong>4. 集合不存在</strong><br>
+            首次使用时 teachers 集合还没创建，这是正常的，同步数据后会自动创建。
+        </div>
+    </div>
+
+<script>
+// 显示当前环境信息
+document.getElementById('currentUrl').textContent = window.location.href
+document.getElementById('protocol').textContent = window.location.protocol
+document.getElementById('hostname').textContent = window.location.hostname
+
+// 检查 SDK 是否加载
+if (typeof cloudbase !== 'undefined') {
+    document.getElementById('sdkStatus').innerHTML = '<span style="color:#2ECC71;">✅ 已加载</span>'
+} else {
+    document.getElementById('sdkStatus').innerHTML = '<span style="color:#FF4757;">❌ 未加载</span>'
+}
+
+const CB_ENV = 'studentpet-d4g0uv0qo2d82dcd0'
+const CB_ACCESS_KEY = 'eyJhbGciOiJSUzI1NiIsImtpZCI6IjlkMWRjMzFlLWI0ZDAtNDQ4Yi1hNzZmLWIwY2M2M2Q4MTQ5OCJ9.eyJpc3MiOiJodHRwczovL3N0dWRlbnRwZXQtZDRnMHV2MHFvMmQ4MmRjZDAuYXAtc2hhbmdoYWkudGNiLWFwaS50ZW5jZW50Y2xvdWRhcGkuY29tIiwic3ViIjoiYW5vbiIsImF1ZCI6InN0dWRlbnRwZXQtZDRnMHV2MHFvMmQ4MmRjZDAiLCJleHAiOjQwODUyOTIxNTIsImlhdCI6MTc4MTYwODk1Miwibm9uY2UiOiJtMlVaN2pPTVNlS29Ia21ndnJZX1BBIiwiYXRfaGFzaCI6Im0yVVo3ak9NU2VLb0hrbWd2cllfUEEiLCJuYW1lIjoiQW5vbnltb3VzIiwic2NvcGUiOiJhbm9ueW1vdXMiLCJwcm9qZWN0X2lkIjoic3R1ZGVudHBldC1kNGcwdXYwcW8yZDgyZGNkMCIsIm1ldGEiOnsicGxhdGZvcm0iOiJQdWJsaXNoYWJsZUtleSJ9LCJ1c2VyX3R5cGUiOiIiLCJjbGllbnRfdHlwZSI6ImNsaWVudF91c2VyIiwiaXNfc3lzdGVtX2FkbWluIjpmYWxzZX0.J-lWo5sjoUyWjC9NCsxZ6eFFrF2TNSG1l7T3_aBUF6pkqKA87Kj7ca_7JjMgKaDPoDDK8TpxQRBZqXGYFu0YOKfG5hZhhop9xTat5przXcOR0AXApOVCyNTeCcSVuO6vH0dKXtOi2c3JSrU1-NBoH3K7vUDi1jf92QT0N7Zg84hM_TuMy7LMJzTK9cp4fB9hr7X3Jr9HepZ7-UQO2mRPl1Tlk-iALOE7CwqAVCc-kdSi8PKi5AWDgxI7FLiJxY45u4k-Mfu9vmGfIGcCplsTwfAQ2dKszLF7iFDZNIyvRgwkmo6pJjdX8Eb_NqNRZs-lZzZQsRHnCV42sVSm_RB_dQ'
+
+async function runDiagnostic() {
+    const statusEl = document.getElementById('testStatus')
+    const resultBox = document.getElementById('resultBox')
+    const steps = []
+
+    statusEl.className = 'status-waiting'
+    statusEl.textContent = '⏳ 正在诊断...'
+    resultBox.innerHTML = ''
+
+    try {
+        // 步骤1: 检查 SDK
+        steps.push('步骤1: 检查 CloudBase SDK...')
+        if (typeof cloudbase === 'undefined') {
+            throw new Error('CloudBase SDK 未加载，请检查网络连接')
+        }
+        steps.push('  ✅ SDK 已加载')
+
+        // 步骤2: 初始化
+        steps.push('步骤2: 初始化 CloudBase...')
+        const app = cloudbase.init({
+            env: CB_ENV,
+            accessKey: CB_ACCESS_KEY
+        })
+        steps.push('  ✅ 初始化成功，环境: ' + CB_ENV)
+
+        // 步骤3: 匿名登录
+        steps.push('步骤3: 匿名登录...')
+        const auth = app.auth()
+        await auth.signInAnonymously()
+        steps.push('  ✅ 匿名登录成功')
+
+        // 步骤4: 读取数据库
+        steps.push('步骤4: 读取 teachers 集合...')
+        const db = app.database()
+        const res = await db.collection('teachers').limit(1).get()
+        steps.push('  ✅ 读取成功，共 ' + (res.data || []).length + ' 条记录')
+
+        // 全部成功
+        statusEl.className = 'status-ok'
+        statusEl.textContent = '✅ 云端连接正常！'
+        resultBox.innerHTML = '<div class="success-box">' + steps.join('\n') + '\n\n🎉 所有测试通过，CloudBase 工作正常！</div>'
+
+    } catch(err) {
+        statusEl.className = 'status-fail'
+        statusEl.textContent = '❌ 诊断失败'
+        
+        let errorDetail = steps.join('\n') + '\n\n'
+        errorDetail += '❌ 错误信息: ' + (err.message || String(err)) + '\n'
+        if (err.code) errorDetail += '❌ 错误代码: ' + err.code + '\n'
+        errorDetail += '❌ 完整错误: ' + JSON.stringify(err).substring(0, 1000) + '\n\n'
+        
+        // 针对性提示
+        const errMsg = (err.message || '').toLowerCase()
+        if (window.location.protocol === 'file:') {
+            errorDetail += '⚠️ 你正在使用 file:// 协议打开文件，CloudBase 不支持此协议。\n'
+            errorDetail += '   请将文件部署到 GitHub Pages 或使用本地服务器（如 VSCode Live Server）访问。'
+        } else if (errMsg.includes('cors') || errMsg.includes('origin')) {
+            errorDetail += '⚠️ 跨域错误！你的域名 "' + window.location.hostname + '" 未加入 CloudBase 安全域名。\n'
+            errorDetail += '   请去 CloudBase 控制台 → 安全配置 → 添加: ' + window.location.hostname
+        } else if (errMsg.includes('unauthorized') || errMsg.includes('401') || errMsg.includes('403')) {
+            errorDetail += '⚠️ 认证失败！access key 可能已失效。\n'
+            errorDetail += '   请去 CloudBase 控制台重新生成 PublishableKey。'
+        } else if (errMsg.includes('network') || errMsg.includes('fetch')) {
+            errorDetail += '⚠️ 网络错误！请检查网络连接是否正常。'
+        } else {
+            errorDetail += '⚠️ 未知错误，请将以上信息截图发送给开发者。'
+        }
+        
+        resultBox.innerHTML = '<div class="error-box">' + errorDetail + '</div>'
+    }
+}
+</script>
+</body>
+</html>
